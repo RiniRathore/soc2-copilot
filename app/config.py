@@ -5,6 +5,11 @@ load_dotenv()
 
 
 class Settings:
+    # API auth -- required on every endpoint except /health. See
+    # app/main.py's require_api_key. Not set = the app refuses requests
+    # rather than running open to anyone who can reach it.
+    api_key: str = os.getenv("API_KEY", "")
+
     # LLM (Gemini free tier -- see app/reasoning_agent.py / self_check.py)
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     reasoning_model: str = os.getenv("REASONING_MODEL", "gemini-flash-lite-latest")
@@ -13,6 +18,11 @@ class Settings:
     database_url: str = os.getenv(
         "DATABASE_URL", "postgresql://soc2:soc2@localhost:5432/soc2_copilot"
     )
+
+    # Terraform state files may only be read from within this directory --
+    # /scan's terraform_state_path is client-supplied, so without this the
+    # endpoint would let any caller read arbitrary files off the server.
+    terraform_state_dir: str = os.getenv("TERRAFORM_STATE_DIR", "seed_data")
 
     # GitHub
     github_token: str = os.getenv("GITHUB_TOKEN", "")

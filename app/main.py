@@ -1,8 +1,12 @@
-from fastapi import FastAPI
+import secrets
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from app.adapters.cloud_api_adapter import pull_all as pull_live_aws
 from app.adapters.terraform_adapter import load_terraform_state
+from app.config import settings
 from app.github_pr import open_findings_pr
 from app.reasoning_agent import evaluate_resource
 from app.retrieval import retrieve_relevant_controls
@@ -14,9 +18,35 @@ from app.runtime_config import RuntimeConfig, get_runtime_config, set_runtime_co
 app = FastAPI(title="SOC 2 Copilot")
 
 
+def require_api_key(x_api_key: str = Header(default="")):
+    """Every endpoint below except /health needs this. Without it, anyone
+    who can reach the server could trigger scans, read/write credentials
+    via /configure, or open PRs on your behalf."""
+    if not settings.api_key:
+        raise HTTPException(status_code=500, detail="API_KEY is not configured on the server")
+    if not secrets.compare_digest(x_api_key, settings.api_key):
+        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key header")
+
+
+def _resolve_terraform_path(user_path: str) -> Path:
+    """terraform_state_path comes from the request body -- resolve it
+    relative to TERRAFORM_STATE_DIR and reject anything that escapes it
+    (e.g. "../../etc/passwd"), so /scan can't be used to read arbitrary
+    files off the server."""
+    base = Path(settings.terraform_state_dir).resolve()
+    candidate = (base / user_path).resolve()
+    if not candidate.is_relative_to(base):
+        raise HTTPException(
+            status_code=400,
+            detail="terraform_state_path must be inside the terraform state directory",
+        )
+    return candidate
+
+
 class ScanRequest(BaseModel):
     source: str = "terraform"          # "terraform" | "live_api"
-    terraform_state_path: str | None = "seed_data/sample.tfstate.json"
+    # relative to settings.terraform_state_dir (default "seed_data") -- see _resolve_terraform_path
+    terraform_state_path: str = "sample.tfstate.json"
     open_pr: bool = True
 
 
@@ -30,7 +60,7 @@ def run_scan(req: ScanRequest) -> ScanResponse:
     trace = new_trace(name=f"soc2-scan-{req.source}")
 
     if req.source == "terraform":
-        resources = load_terraform_state(req.terraform_state_path)
+        resources = load_terraform_state(_resolve_terraform_path(req.terraform_state_path))
     elif req.source == "live_api":
         resources = pull_live_aws()
     else:
@@ -66,12 +96,12 @@ def run_scan(req: ScanRequest) -> ScanResponse:
     )
 
 
-@app.post("/scan", response_model=ScanResponse)
+@app.post("/scan", response_model=ScanResponse, dependencies=[Depends(require_api_key)])
 def scan(req: ScanRequest):
     return run_scan(req)
 
 
-@app.post("/scan/agentic", response_model=ScanResponse)
+@app.post("/scan/agentic", response_model=ScanResponse, dependencies=[Depends(require_api_key)])
 def scan_agentic():
     """Second demo path: automatic function calling -- the SDK lets the
     model decide which tool to call and when to stop, instead of this
@@ -81,7 +111,7 @@ def scan_agentic():
     return ScanResponse(findings=result["findings"], pr_url=result["pr_url"])
 
 
-@app.post("/configure")
+@app.post("/configure", dependencies=[Depends(require_api_key)])
 def configure(config: RuntimeConfig):
     """Accepts credentials from the Streamlit settings panel. Held in
     server-side memory only for this process's lifetime -- never
@@ -95,7 +125,7 @@ def configure(config: RuntimeConfig):
     }
 
 
-@app.get("/configure")
+@app.get("/configure", dependencies=[Depends(require_api_key)])
 def get_configure_status():
     """Lets the frontend check what's currently configured without
     ever receiving the actual secret values back."""

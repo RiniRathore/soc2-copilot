@@ -59,7 +59,12 @@ Live AWS API ──────────┘                    ↑
 
 1. `cp .env.example .env` and fill in your keys (Gemini API key from
    Google AI Studio, GitHub token + demo repo, Langfuse keys; AWS
-   profile only needed if using the live_api source).
+   profile only needed if using the live_api source). Also set
+   `API_KEY` -- generate one with
+   `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
+   Every request to the backend (except `/health`) must include it as
+   an `X-API-Key` header; the Streamlit frontend reads the same `.env`
+   and attaches it automatically.
 2. `docker compose up -d` -- starts Postgres with pgvector.
 3. `pip install -r requirements.txt --break-system-packages`
 4. `python -m app.knowledge_base.ingest` -- one-time: chunks + embeds the

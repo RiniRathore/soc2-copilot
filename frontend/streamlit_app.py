@@ -5,15 +5,27 @@ Deliberately basic -- one page, one button, one table, plus a settings
 panel for credentials. All the actual work happens in the FastAPI
 pipeline; this is just a demo-friendly window into it.
 """
+import os
+
 import pandas as pd
 import requests
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 st.set_page_config(page_title="SOC 2 Copilot", layout="wide")
 st.title("SOC 2 Copilot")
 st.caption("Scans infra config against SOC 2 + CIS controls, verifies its own findings, opens a PR.")
 
 API_URL = "http://localhost:8000"
+# Same API_KEY the backend requires -- both processes read it from the
+# same .env, since this frontend and the backend are meant to be run by
+# the same operator (see require_api_key in app/main.py).
+API_HEADERS = {"X-API-Key": os.getenv("API_KEY", "")}
+
+if not API_HEADERS["X-API-Key"]:
+    st.error("API_KEY is not set in .env -- the backend will reject every request. Set it and restart.")
 
 # --- Settings panel ---------------------------------------------------
 with st.sidebar:
@@ -58,7 +70,7 @@ with st.sidebar:
             "gcp_service_account_json": gcp_service_account_json or None,
         }
         try:
-            resp = requests.post(f"{API_URL}/configure", json=payload, timeout=10)
+            resp = requests.post(f"{API_URL}/configure", json=payload, headers=API_HEADERS, timeout=10)
             resp.raise_for_status()
             configured = resp.json()["configured"]
             st.success(f"Saved: {', '.join(configured) if configured else '(nothing set)'}")
@@ -67,7 +79,7 @@ with st.sidebar:
 
     # Show what's currently active without ever displaying secret values
     try:
-        status = requests.get(f"{API_URL}/configure", timeout=5).json()
+        status = requests.get(f"{API_URL}/configure", headers=API_HEADERS, timeout=5).json()
         if status["configured"]:
             st.caption(f"Currently set: {', '.join(status['configured'])}")
         else:
@@ -86,7 +98,7 @@ if run_clicked:
     try:
         with st.spinner("Scanning... (a full scan makes many sequential Gemini calls and can take a few minutes on the free tier)"):
             payload = {"source": source, "open_pr": open_pr}
-            response = requests.post(f"{API_URL}/scan", json=payload, timeout=600)
+            response = requests.post(f"{API_URL}/scan", json=payload, headers=API_HEADERS, timeout=600)
             response.raise_for_status()
             result = response.json()
     except Exception as e:
