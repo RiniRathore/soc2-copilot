@@ -1,0 +1,86 @@
+{
+  "version": 4,
+  "terraform_version": "1.7.0",
+  "resources": [
+    {
+      "type": "aws_s3_bucket",
+      "name": "customer_uploads",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "attributes": {
+            "bucket": "acme-customer-uploads",
+            "acl": "public-read",
+            "region": "ap-south-1"
+          }
+        }
+      ]
+    },
+    {
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "customer_uploads_encryption",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "attributes": {
+            "bucket": "acme-customer-uploads",
+            "rule": []
+          }
+        }
+      ]
+    },
+    {
+      "type": "aws_security_group",
+      "name": "app_server_sg",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "attributes": {
+            "name": "app-server-sg",
+            "ingress": [
+              {
+                "from_port": 22,
+                "to_port": 22,
+                "protocol": "tcp",
+                "cidr_blocks": ["0.0.0.0/0"]
+              },
+              {
+                "from_port": 5432,
+                "to_port": 5432,
+                "protocol": "tcp",
+                "cidr_blocks": ["0.0.0.0/0"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "aws_iam_role_policy",
+      "name": "deploy_bot_policy",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "attributes": {
+            "name": "deploy-bot-policy",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "aws_ebs_volume",
+      "name": "app_data_volume",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "attributes": {
+            "availability_zone": "ap-south-1a",
+            "size": 100,
+            "encrypted": false
+          }
+        }
+      ]
+    }
+  ]
+}

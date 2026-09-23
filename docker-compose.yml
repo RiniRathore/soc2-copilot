@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: soc2_copilot_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soc2
+      POSTGRES_PASSWORD: soc2
+      POSTGRES_DB: soc2_copilot
+    ports:
+      - "5433:5432"
+    volumes:
+      - soc2_pgdata:/var/lib/postgresql/data
+
+volumes:
+  soc2_pgdata:
