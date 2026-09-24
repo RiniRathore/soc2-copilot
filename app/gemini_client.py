@@ -8,6 +8,7 @@ responses are routine at that volume, not exceptional.
 import json
 import time
 
+import httpx
 from google import genai
 from google.genai import errors
 
@@ -45,10 +46,11 @@ def _retry_delay_seconds(e) -> float | None:
 def generate_with_retry(**kwargs):
     """Calls client.models.generate_content, retrying transient failures.
 
-    Retries ServerError (5xx, e.g. "model overloaded") and 429 rate-limit
-    ClientErrors. Anything else (bad request, auth failure, etc.) raises
-    immediately -- retrying those would just waste time on a call that can
-    never succeed.
+    Retries ServerError (5xx, e.g. "model overloaded"), 429 rate-limit
+    ClientErrors, and httpx.TransportError (connection drops, timeouts --
+    seen live: "Server disconnected without sending a response" mid-scan).
+    Anything else (bad request, auth failure, etc.) raises immediately --
+    retrying those would just waste time on a call that can never succeed.
     """
     client = get_client()
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -63,6 +65,10 @@ def generate_with_retry(**kwargs):
                 raise
             wait = _retry_delay_seconds(e)
             time.sleep(min(wait, MAX_RATE_LIMIT_WAIT) if wait else BACKOFF_SECONDS * attempt)
+        except httpx.TransportError:
+            if attempt == MAX_ATTEMPTS:
+                raise
+            time.sleep(BACKOFF_SECONDS * attempt)
 
 
 def parse_json_response(response) -> dict:
@@ -90,9 +96,17 @@ class GeminiCallError(Exception):
 
 
 def generate_and_parse(**kwargs) -> dict:
+    """The single entry point reasoning_agent.py / self_check.py should use.
+
+    Deliberately catches Exception, not just errors.APIError -- this is an
+    external network boundary, and the whole point of this function is to
+    guarantee that *nothing* about a single Gemini call (a structured API
+    error, a raw connection drop, an unexpected SDK exception) can escape
+    and crash the caller. Every failure becomes one GeminiCallError.
+    """
     try:
         response = generate_with_retry(**kwargs)
-    except errors.APIError as e:
+    except Exception as e:
         raise GeminiCallError(f"Gemini API call failed: {e}") from e
     try:
         return parse_json_response(response)
