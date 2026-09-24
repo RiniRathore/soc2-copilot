@@ -12,7 +12,13 @@ class Settings:
 
     # LLM (Gemini free tier -- see app/reasoning_agent.py / self_check.py)
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-    reasoning_model: str = os.getenv("REASONING_MODEL", "gemini-flash-lite-latest")
+    # Pinned, not a "-latest" alias -- an alias can silently repoint to a
+    # different underlying model (different quota, different behavior)
+    # with no code change on our end. Confirmed this actually happens:
+    # gemini-flash-lite-latest resolved to a different model 13 days
+    # after this project started. Upgrading the pin is a deliberate,
+    # tested decision, not something that should happen by itself.
+    reasoning_model: str = os.getenv("REASONING_MODEL", "gemini-3.5-flash-lite")
 
     # DB
     database_url: str = os.getenv(

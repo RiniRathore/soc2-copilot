@@ -3,7 +3,7 @@ import json
 from google.genai import types
 
 from app.config import settings
-from app.gemini_client import generate_with_retry
+from app.gemini_client import generate_with_retry, parse_json_response
 from app.models import ControlChunk, Finding, ResourceConfig
 
 SYSTEM_PROMPT = """You are a SOC 2 compliance analyst. You are given one \
@@ -48,15 +48,22 @@ config: {json.dumps(resource.config, default=str)}
         ),
     )
 
-    parsed = json.loads(response.text)
+    try:
+        parsed = parse_json_response(response)
+        violation, severity, reasoning = parsed["violation"], parsed["severity"], parsed["reasoning"]
+    except (ValueError, KeyError) as e:
+        # Fail closed: skip this one pair rather than crash the whole scan
+        # over one bad Gemini response. Not a violation, so it won't
+        # surface as a false finding -- just silently under-reports here.
+        violation, severity, reasoning = False, "low", f"Could not evaluate this resource/control pair: {e}"
 
     return Finding(
         resource_type=resource.resource_type,
         resource_name=resource.name,
         control_id=control.control_id,
         framework=control.framework,
-        violation=parsed["violation"],
-        severity=parsed["severity"],
-        reasoning=parsed["reasoning"],
+        violation=violation,
+        severity=severity,
+        reasoning=reasoning,
         cited_control_text=control.text,
     )

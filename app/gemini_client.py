@@ -5,6 +5,7 @@ built their own client identically, and a live scan makes dozens of
 sequential calls -- transient 503 (model overloaded) / 429 (rate limited)
 responses are routine at that volume, not exceptional.
 """
+import json
 import time
 
 from google import genai
@@ -62,3 +63,19 @@ def generate_with_retry(**kwargs):
                 raise
             wait = _retry_delay_seconds(e)
             time.sleep(min(wait, MAX_RATE_LIMIT_WAIT) if wait else BACKOFF_SECONDS * attempt)
+
+
+def parse_json_response(response) -> dict:
+    """response_mime_type="application/json" makes malformed JSON rare,
+    but not impossible -- a safety block, MAX_TOKENS truncation, or a
+    RECITATION finish reason all come back as empty/partial text. Raises
+    ValueError with a clear message; callers should catch it and degrade
+    one finding gracefully rather than crash the whole scan over it.
+    """
+    if not response.text:
+        reason = response.candidates[0].finish_reason if response.candidates else None
+        raise ValueError(f"empty response from Gemini (finish_reason={reason})")
+    try:
+        return json.loads(response.text)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Gemini response was not valid JSON: {e}") from e
