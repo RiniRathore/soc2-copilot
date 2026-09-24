@@ -1,7 +1,7 @@
 from google.genai import types
 
 from app.config import settings
-from app.gemini_client import generate_with_retry, parse_json_response
+from app.gemini_client import GeminiCallError, generate_and_parse
 from app.models import Finding, VerifiedFinding
 
 SYSTEM_PROMPT = """You are a strict reviewer checking another analyst's \
@@ -34,24 +34,22 @@ severity: {finding.severity}
 reasoning: {finding.reasoning}
 """
 
-    response = generate_with_retry(
-        model=settings.reasoning_model,
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            # see reasoning_agent.py -- thinking tokens eat into this budget too
-            max_output_tokens=1024,
-        ),
-    )
-
     try:
-        parsed = parse_json_response(response)
+        parsed = generate_and_parse(
+            model=settings.reasoning_model,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                # see reasoning_agent.py -- thinking tokens eat into this budget too
+                max_output_tokens=1024,
+            ),
+        )
         status, note = parsed["verification_status"], parsed["verification_note"]
-    except (ValueError, KeyError) as e:
-        # Fail closed: if the self-check itself is unreadable, don't crash
-        # the scan or silently pass the finding through as "confirmed" --
-        # mark it uncertain so a human knows to look closer.
+    except (GeminiCallError, KeyError) as e:
+        # Fail closed: if the self-check call failed or its response was
+        # unreadable, don't crash the scan or silently pass the finding
+        # through as "confirmed" -- mark it uncertain so a human looks closer.
         status, note = "uncertain", f"Self-check could not evaluate this finding: {e}"
 
     return VerifiedFinding(

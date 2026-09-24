@@ -79,3 +79,22 @@ def parse_json_response(response) -> dict:
         return json.loads(response.text)
     except json.JSONDecodeError as e:
         raise ValueError(f"Gemini response was not valid JSON: {e}") from e
+
+
+class GeminiCallError(Exception):
+    """Raised for any failure calling Gemini or parsing its response --
+    a transient error that outlasted generate_with_retry's attempt budget,
+    or a response that came back empty/malformed. Callers catch this one
+    type and degrade a single (resource, control) pair gracefully instead
+    of crashing the whole scan."""
+
+
+def generate_and_parse(**kwargs) -> dict:
+    try:
+        response = generate_with_retry(**kwargs)
+    except errors.APIError as e:
+        raise GeminiCallError(f"Gemini API call failed: {e}") from e
+    try:
+        return parse_json_response(response)
+    except ValueError as e:
+        raise GeminiCallError(str(e)) from e

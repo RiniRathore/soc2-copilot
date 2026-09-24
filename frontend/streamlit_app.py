@@ -96,9 +96,9 @@ with col1:
 
 if run_clicked:
     try:
-        with st.spinner("Scanning... (a full scan makes many sequential Gemini calls and can take a few minutes on the free tier)"):
+        with st.spinner("Scanning... (a full scan makes many sequential Gemini calls and can take several minutes on the free tier, longer if Gemini is rate-limiting or overloaded)"):
             payload = {"source": source, "open_pr": open_pr}
-            response = requests.post(f"{API_URL}/scan", json=payload, headers=API_HEADERS, timeout=600)
+            response = requests.post(f"{API_URL}/scan", json=payload, headers=API_HEADERS, timeout=1200)
             response.raise_for_status()
             result = response.json()
     except Exception as e:

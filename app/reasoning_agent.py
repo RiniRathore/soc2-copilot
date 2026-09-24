@@ -3,7 +3,7 @@ import json
 from google.genai import types
 
 from app.config import settings
-from app.gemini_client import generate_with_retry, parse_json_response
+from app.gemini_client import GeminiCallError, generate_and_parse
 from app.models import ControlChunk, Finding, ResourceConfig
 
 SYSTEM_PROMPT = """You are a SOC 2 compliance analyst. You are given one \
@@ -35,26 +35,25 @@ name: {resource.name}
 config: {json.dumps(resource.config, default=str)}
 """
 
-    response = generate_with_retry(
-        model=settings.reasoning_model,
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",  # forces valid JSON back
-            # gemini-3.x reasoning models spend part of this budget on internal
-            # "thinking" tokens before the JSON answer -- observed 100-250+ in
-            # testing -- so this needs real headroom above the answer's own size.
-            max_output_tokens=2048,
-        ),
-    )
-
     try:
-        parsed = parse_json_response(response)
+        parsed = generate_and_parse(
+            model=settings.reasoning_model,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",  # forces valid JSON back
+                # gemini-3.x reasoning models spend part of this budget on internal
+                # "thinking" tokens before the JSON answer -- observed 100-250+ in
+                # testing -- so this needs real headroom above the answer's own size.
+                max_output_tokens=2048,
+            ),
+        )
         violation, severity, reasoning = parsed["violation"], parsed["severity"], parsed["reasoning"]
-    except (ValueError, KeyError) as e:
-        # Fail closed: skip this one pair rather than crash the whole scan
-        # over one bad Gemini response. Not a violation, so it won't
-        # surface as a false finding -- just silently under-reports here.
+    except (GeminiCallError, KeyError) as e:
+        # Fail closed: skip this one pair (whether Gemini was unreachable/
+        # overloaded or just returned something unusable) rather than crash
+        # the whole scan. Not a violation, so it won't surface as a false
+        # finding -- just silently under-reports here.
         violation, severity, reasoning = False, "low", f"Could not evaluate this resource/control pair: {e}"
 
     return Finding(
