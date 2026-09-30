@@ -262,3 +262,20 @@ Ensure Secrets Manager secrets have automatic rotation enabled. A secret
 (especially database credentials or API keys) with rotation not
 configured is a violation of this control.
 
+## CIS-6.3
+Ensure Lambda functions are not configured with a public Function URL
+(auth type "NONE"). A function URL with no IAM authorization required
+is a violation of this control -- it exposes the function to
+unauthenticated invocation from the public internet.
+
+## CIS-6.4
+Ensure Lambda function execution roles follow least privilege. A
+function whose execution role's policy grants wildcard ("*") actions
+or resources is a violation of this control -- same principle as
+CC6.3/CIS-1.13, applied to the function's own role.
+
+## CIS-8.1
+Ensure GuardDuty is enabled in all regions. An account/region with no
+active GuardDuty detector is a violation of this control -- without it,
+there is no automated threat-detection coverage for the account.
+

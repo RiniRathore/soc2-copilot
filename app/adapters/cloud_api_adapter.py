@@ -505,6 +505,82 @@ def _pull_cloudwatch_monitoring(session: boto3.Session) -> list[ResourceConfig]:
     ]
 
 
+def _pull_lambda_functions(session: boto3.Session) -> list[ResourceConfig]:
+    lam = session.client("lambda")
+    iam = session.client("iam")
+    resources = []
+
+    for fn in lam.list_functions().get("Functions", []):
+        name = fn["FunctionName"]
+
+        try:
+            url_config = lam.get_function_url_config(FunctionName=name)
+            function_url_auth_type = url_config.get("AuthType")
+        except ClientError:
+            function_url_auth_type = None  # no function URL configured
+
+        role_arn = fn.get("Role", "")
+        role_name = role_arn.rsplit("/", 1)[-1] if role_arn else None
+        inline_policies = []
+        attached_policy_arns = []
+        if role_name:
+            try:
+                for p_name in iam.list_role_policies(RoleName=role_name).get("PolicyNames", []):
+                    doc = iam.get_role_policy(RoleName=role_name, PolicyName=p_name)
+                    inline_policies.append(doc.get("PolicyDocument"))
+                attached_policy_arns = [
+                    p["PolicyArn"]
+                    for p in iam.list_attached_role_policies(RoleName=role_name).get("AttachedPolicies", [])
+                ]
+            except ClientError:
+                pass  # role may not be inspectable (e.g. cross-account) -- best effort
+
+        resources.append(
+            ResourceConfig(
+                resource_type="aws_lambda_function",
+                name=name,
+                config={
+                    "function_url_auth_type": function_url_auth_type,
+                    "execution_role_inline_policies": inline_policies,
+                    "execution_role_attached_policy_arns": attached_policy_arns,
+                },
+                source="live_api",
+            )
+        )
+    return resources
+
+
+def _pull_guardduty(session: boto3.Session) -> list[ResourceConfig]:
+    """Account/region-level: GuardDuty enabled or not. Same absence
+    pattern as CloudTrail/Config -- zero detectors is itself CIS-8.1's
+    finding, not something to silently skip."""
+    gd = session.client("guardduty")
+    detector_ids = gd.list_detectors().get("DetectorIds", [])
+
+    if not detector_ids:
+        return [
+            ResourceConfig(
+                resource_type="aws_guardduty_detector",
+                name="no-detector-configured",
+                config={"detector_exists": False},
+                source="live_api",
+            )
+        ]
+
+    resources = []
+    for detector_id in detector_ids:
+        detector = gd.get_detector(DetectorId=detector_id)
+        resources.append(
+            ResourceConfig(
+                resource_type="aws_guardduty_detector",
+                name=detector_id,
+                config={"status": detector.get("Status")},
+                source="live_api",
+            )
+        )
+    return resources
+
+
 def pull_all() -> list[ResourceConfig]:
     """Deterministic, fixed enumeration -- every listed pull runs every
     time, guaranteeing coverage rather than leaving discovery up to model
@@ -529,6 +605,8 @@ def pull_all() -> list[ResourceConfig]:
         + _pull_secrets_manager_secrets(session)
         + _pull_dynamodb_tables(session)
         + _pull_cloudwatch_monitoring(session)
+        + _pull_lambda_functions(session)
+        + _pull_guardduty(session)
     )
 
 

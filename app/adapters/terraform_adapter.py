@@ -39,10 +39,13 @@ RELEVANT_RESOURCE_TYPES = {
     "aws_config_configuration_recorder",
     "aws_cloudwatch_metric_alarm",
     "aws_cloudwatch_log_metric_filter",
+    "aws_guardduty_detector",
     # Encryption
     "aws_kms_key",
     # Compute
     "aws_instance",  # EC2
+    "aws_lambda_function",
+    "aws_lambda_function_url",
     # Secrets
     "aws_secretsmanager_secret",
     "aws_secretsmanager_secret_rotation",
