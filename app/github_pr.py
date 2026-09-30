@@ -8,13 +8,14 @@ from app.runtime_config import get_runtime_config
 
 
 def _format_finding_markdown(finding: VerifiedFinding) -> str:
+    remediation = f"\n**How to fix:** {finding.remediation}\n" if finding.remediation else ""
     return f"""### {finding.resource_type} `{finding.resource_name}`
 - **Control:** {finding.framework} {finding.control_id}
 - **Severity:** {finding.severity}
 - **Verification:** {finding.verification_status}
 
 {finding.reasoning}
-
+{remediation}
 <details><summary>Cited control text</summary>
 
 {finding.cited_control_text}

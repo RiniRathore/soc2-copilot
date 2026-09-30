@@ -8,8 +8,9 @@ from app.adapters.cloud_api_adapter import pull_all as pull_live_aws
 from app.adapters.terraform_adapter import load_terraform_state
 from app.config import settings
 from app.github_pr import open_findings_pr
+from app.models import CoverageSummary
 from app.reasoning_agent import evaluate_resource
-from app.retrieval import retrieve_relevant_controls
+from app.retrieval import get_knowledge_base_counts, retrieve_relevant_controls
 from app.self_check import verify_finding
 from app.tracing import log_reasoning, log_retrieval, log_self_check, new_trace
 from app.agent_loop import run_agentic_scan
@@ -54,6 +55,7 @@ class ScanResponse(BaseModel):
     findings: list[dict]
     pr_url: str | None
     pr_error: str | None = None
+    coverage_summary: CoverageSummary
 
 
 def run_scan(req: ScanRequest) -> ScanResponse:
@@ -67,11 +69,13 @@ def run_scan(req: ScanRequest) -> ScanResponse:
         raise ValueError(f"unknown source: {req.source}")
 
     verified_findings = []
+    evaluated_control_ids = set()
     for resource in resources:
         controls = retrieve_relevant_controls(resource)
         log_retrieval(trace, resource.name, controls)
 
         for control in controls:
+            evaluated_control_ids.add(control.control_id)
             finding = evaluate_resource(resource, control)
             log_reasoning(trace, finding)
 
@@ -89,10 +93,18 @@ def run_scan(req: ScanRequest) -> ScanResponse:
         except Exception as e:  # noqa: BLE001 -- a PR failure shouldn't discard findings already verified above
             pr_error = str(e)
 
+    total_controls, checkable_controls = get_knowledge_base_counts()
+
     return ScanResponse(
         findings=[f.model_dump() for f in verified_findings],
         pr_url=pr_url,
         pr_error=pr_error,
+        coverage_summary=CoverageSummary(
+            total_controls_in_knowledge_base=total_controls,
+            infra_checkable_controls_in_knowledge_base=checkable_controls,
+            organizational_controls_in_knowledge_base=total_controls - checkable_controls,
+            unique_controls_evaluated_this_scan=len(evaluated_control_ids),
+        ),
     )
 
 
@@ -108,7 +120,20 @@ def scan_agentic():
     fixed pipeline. Kept separate from /scan so the working deterministic
     demo is never at risk if this one has issues."""
     result = run_agentic_scan()
-    return ScanResponse(findings=result["findings"], pr_url=result["pr_url"])
+    total_controls, checkable_controls = get_knowledge_base_counts()
+    return ScanResponse(
+        findings=result["findings"],
+        pr_url=result["pr_url"],
+        coverage_summary=CoverageSummary(
+            total_controls_in_knowledge_base=total_controls,
+            infra_checkable_controls_in_knowledge_base=checkable_controls,
+            organizational_controls_in_knowledge_base=total_controls - checkable_controls,
+            # the model decides what to check here -- only a lower bound
+            # from what ended up in a confirmed finding, not everything it
+            # looked at. See README: this path isn't a coverage guarantee.
+            unique_controls_evaluated_this_scan=len({f["control_id"] for f in result["findings"]}),
+        ),
+    )
 
 
 @app.post("/configure", dependencies=[Depends(require_api_key)])

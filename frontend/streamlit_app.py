@@ -109,10 +109,20 @@ if run_clicked:
         findings = result["findings"]
         st.success(f"Scan complete — {len(findings)} confirmed violation(s)")
 
+        cov = result.get("coverage_summary")
+        if cov:
+            st.info(
+                f"Checked {cov['unique_controls_evaluated_this_scan']} distinct controls this scan, out of "
+                f"{cov['infra_checkable_controls_in_knowledge_base']} infra-checkable controls in the "
+                f"knowledge base ({cov['total_controls_in_knowledge_base']} total, "
+                f"{cov['organizational_controls_in_knowledge_base']} of which are organizational/process "
+                f"controls this tool cannot evaluate at all). {cov['note']}"
+            )
+
         if findings:
             df = pd.DataFrame(findings)[
                 ["resource_type", "resource_name", "framework", "control_id",
-                 "severity", "verification_status", "reasoning"]
+                 "severity", "verification_status", "reasoning", "remediation"]
             ]
             st.dataframe(df, use_container_width=True)
 

@@ -1,4 +1,4 @@
-## CC1.1
+## CC1.1 [ORG]
 The entity demonstrates a commitment to integrity and ethical values. This
 is an organizational/cultural control (code of conduct, tone from the top,
 disciplinary policies) evidenced by policy documents, training records, and
@@ -6,97 +6,97 @@ HR processes -- not something a Terraform state file or live resource
 config can confirm or violate. Treat as insufficient information from infra
 config alone.
 
-## CC1.2
+## CC1.2 [ORG]
 The board of directors demonstrates independence from management and
 exercises oversight of the development and performance of internal control.
 Evidenced by board composition, meeting minutes, and charter documents --
 not observable in infrastructure configuration.
 
-## CC1.3
+## CC1.3 [ORG]
 Management establishes, with board oversight, structures, reporting lines,
 and appropriate authorities and responsibilities in the pursuit of
 objectives. This is an org-chart and governance-structure control,
 evidenced by organizational documentation, not infrastructure config.
 
-## CC1.4
+## CC1.4 [ORG]
 The entity demonstrates a commitment to attract, develop, and retain
 competent individuals in alignment with objectives. Evidenced by hiring,
 training, and performance-management records -- not infrastructure config.
 
-## CC1.5
+## CC1.5 [ORG]
 The entity holds individuals accountable for their internal control
 responsibilities in the pursuit of objectives. Evidenced by performance
 reviews and disciplinary records tied to control responsibilities -- not
 infrastructure config.
 
-## CC2.1
+## CC2.1 [ORG]
 The entity obtains or generates and uses relevant, quality information to
 support the functioning of internal control. Evidenced by data-quality and
 reporting processes -- not directly observable from a single resource's
 infrastructure configuration.
 
-## CC2.2
+## CC2.2 [ORG]
 The entity internally communicates information, including objectives and
 responsibilities for internal control, necessary to support the functioning
 of internal control. Evidenced by internal communications, policy
 distribution, and training records -- not infrastructure config.
 
-## CC2.3
+## CC2.3 [ORG]
 The entity communicates with external parties regarding matters affecting
 the functioning of internal control. Evidenced by customer/vendor/regulator
 communications and disclosure processes -- not infrastructure config.
 
-## CC3.1
+## CC3.1 [ORG]
 The entity specifies objectives with sufficient clarity to enable the
 identification and assessment of risks relating to objectives. Evidenced
 by documented business/security objectives -- not infrastructure config.
 
-## CC3.2
+## CC3.2 [ORG]
 The entity identifies risks to the achievement of its objectives across the
 entity and analyzes risks as a basis for determining how the risks should
 be managed. Evidenced by a risk register or risk-assessment process -- not
 infrastructure config.
 
-## CC3.3
+## CC3.3 [ORG]
 The entity considers the potential for fraud in assessing risks to the
 achievement of objectives. Evidenced by fraud-risk assessments -- not
 infrastructure config.
 
-## CC3.4
+## CC3.4 [ORG]
 The entity identifies and assesses changes that could significantly impact
 the system of internal control. Evidenced by change-impact assessments at
 the organizational level -- not a single resource's infrastructure config
 (contrast with CC8.1, which covers change management for individual
 infrastructure/software changes).
 
-## CC4.1
+## CC4.1 [ORG]
 The entity selects, develops, and performs ongoing and/or separate
 evaluations to ascertain whether the components of internal control are
 present and functioning. Evidenced by internal audit or control-testing
 programs -- not infrastructure config.
 
-## CC4.2
+## CC4.2 [ORG]
 The entity evaluates and communicates internal control deficiencies in a
 timely manner to those parties responsible for taking corrective action,
 including senior management and the board of directors, as appropriate.
 Evidenced by deficiency-tracking and escalation records -- not
 infrastructure config.
 
-## CC5.1
+## CC5.1 [ORG]
 The entity selects and develops control activities that contribute to the
 mitigation of risks to the achievement of objectives to an acceptable
 level. This is the general design of the control environment -- not a
 single resource's config; see CC6/CC7 for the technical controls this
 principle produces.
 
-## CC5.2
+## CC5.2 [ORG]
 The entity also selects and develops general control activities over
 technology to support the achievement of objectives. Evidenced by IT
 general control design (access provisioning process, change management
 process, backup process) -- an organizational design control rather than
 a single resource's config.
 
-## CC5.3
+## CC5.3 [ORG]
 The entity deploys control activities through policies that establish what
 is expected and in procedures that put policies into action. Evidenced by
 written policies and procedures -- not infrastructure config.
@@ -127,7 +127,7 @@ roles or policies that grant broad, unscoped permissions (such as
 wildcard "*" actions or "*" resources) rather than least-privilege,
 task-specific permissions are a violation of this control.
 
-## CC6.4
+## CC6.4 [ORG]
 The entity restricts physical access to facilities and protected
 information assets. For cloud infrastructure this is generally inherited
 from the cloud provider's own physical/data-center controls rather than
@@ -179,7 +179,7 @@ ability to meet its objectives, and evaluates monitoring output. Resources
 with logging or monitoring explicitly disabled are a violation of this
 control.
 
-## CC7.3
+## CC7.3 [ORG]
 The entity evaluates security events to determine whether they could or
 have resulted in a failure of the entity to meet its objectives and, if
 so, takes actions to prevent or address such failures. Evidenced by an
@@ -187,21 +187,21 @@ event-triage/evaluation process -- generally not observable from a single
 resource's config alone, though the presence of enabled alerting (see
 CC7.2) is a prerequisite.
 
-## CC7.4
+## CC7.4 [ORG]
 The entity responds to identified security incidents by executing a
 defined incident-response program to understand, contain, remediate, and
 communicate security incidents, as appropriate. Evidenced by a documented
 incident-response plan and post-incident records -- not infrastructure
 config.
 
-## CC7.5
+## CC7.5 [ORG]
 The entity identifies, develops, and implements activities to recover
 from identified security incidents. Evidenced by recovery/backup testing
 and post-incident remediation records -- resource-level backup/snapshot
 configuration is a relevant but partial signal; the control as a whole is
 not fully observable from infra config alone.
 
-## CC8.1
+## CC8.1 [ORG]
 The entity authorizes, designs, develops or acquires, configures,
 documents, tests, approves, and implements changes to infrastructure,
 data, software, and procedures to meet its objectives. Infrastructure
@@ -211,14 +211,14 @@ or without a corresponding change record) are a violation of this control
 -- confirming this generally requires change-management/CI records
 alongside the resource config, not the resource config alone.
 
-## CC9.1
+## CC9.1 [ORG]
 The entity identifies, selects, and develops risk mitigation activities
 for risks arising from potential business disruptions. Evidenced by a
 business-continuity/disaster-recovery plan -- resource-level redundancy
 (e.g. multi-AZ, backups) is a relevant but partial signal; the control as
 a whole is not fully observable from infra config alone.
 
-## CC9.2
+## CC9.2 [ORG]
 The entity assesses and manages risks associated with vendors and business
 partners. Evidenced by vendor risk assessments and contracts -- not
 infrastructure config.

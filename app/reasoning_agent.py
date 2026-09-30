@@ -16,7 +16,10 @@ Respond ONLY with a JSON object, no other text, in this exact shape:
   "violation": true|false,
   "severity": "low"|"medium"|"high"|"critical",
   "reasoning": "one or two sentences explaining your decision, referencing \
-the specific config values that led to it"
+the specific config values that led to it",
+  "remediation": "if violation is true, one or two concrete sentences on \
+how to fix it -- specific settings/values to change, not generic advice. \
+If violation is false, an empty string."
 }
 
 Base your decision strictly on the control text provided and the resource \
@@ -48,13 +51,16 @@ config: {json.dumps(resource.config, default=str)}
                 max_output_tokens=2048,
             ),
         )
-        violation, severity, reasoning = parsed["violation"], parsed["severity"], parsed["reasoning"]
+        violation = parsed["violation"]
+        severity = parsed["severity"]
+        reasoning = parsed["reasoning"]
+        remediation = parsed.get("remediation", "")
     except (GeminiCallError, KeyError) as e:
         # Fail closed: skip this one pair (whether Gemini was unreachable/
         # overloaded or just returned something unusable) rather than crash
         # the whole scan. Not a violation, so it won't surface as a false
         # finding -- just silently under-reports here.
-        violation, severity, reasoning = False, "low", f"Could not evaluate this resource/control pair: {e}"
+        violation, severity, reasoning, remediation = False, "low", f"Could not evaluate this resource/control pair: {e}", ""
 
     return Finding(
         resource_type=resource.resource_type,
@@ -65,4 +71,5 @@ config: {json.dumps(resource.config, default=str)}
         severity=severity,
         reasoning=reasoning,
         cited_control_text=control.text,
+        remediation=remediation,
     )

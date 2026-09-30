@@ -29,7 +29,7 @@ def retrieve_relevant_controls(
         rows = conn.execute(
             text(
                 """
-                SELECT control_id, framework, text,
+                SELECT control_id, framework, text, checkable,
                        1 - (embedding <=> (:query_embedding)::vector) AS similarity
                 FROM control_chunks
                 ORDER BY embedding <=> (:query_embedding)::vector
@@ -45,6 +45,18 @@ def retrieve_relevant_controls(
             framework=row.framework,
             text=row.text,
             similarity=float(row.similarity),
+            checkable=row.checkable,
         )
         for row in rows
     ]
+
+
+def get_knowledge_base_counts() -> tuple[int, int]:
+    """(total_controls, infra_checkable_controls) across the whole
+    knowledge base -- used for ScanResponse.coverage_summary, not per-scan
+    retrieval."""
+    with _engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT count(*) AS total, count(*) FILTER (WHERE checkable) AS checkable FROM control_chunks")
+        ).one()
+    return row.total, row.checkable
