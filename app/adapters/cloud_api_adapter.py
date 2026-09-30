@@ -397,6 +397,114 @@ def _pull_kms_keys(session: boto3.Session) -> list[ResourceConfig]:
     return resources
 
 
+def _pull_ec2_instances(session: boto3.Session) -> list[ResourceConfig]:
+    ec2 = session.client("ec2")
+    resources = []
+    for reservation in ec2.describe_instances().get("Reservations", []):
+        for inst in reservation.get("Instances", []):
+            if inst.get("State", {}).get("Name") == "terminated":
+                continue
+            metadata_options = inst.get("MetadataOptions", {})
+            resources.append(
+                ResourceConfig(
+                    resource_type="aws_instance",
+                    name=inst["InstanceId"],
+                    config={
+                        "public_ip_address": inst.get("PublicIpAddress"),
+                        "http_tokens": metadata_options.get("HttpTokens"),  # "required" = IMDSv2 enforced
+                        "iam_instance_profile": bool(inst.get("IamInstanceProfile")),
+                    },
+                    source="live_api",
+                )
+            )
+    return resources
+
+
+def _pull_secrets_manager_secrets(session: boto3.Session) -> list[ResourceConfig]:
+    sm = session.client("secretsmanager")
+    resources = []
+    for secret in sm.list_secrets().get("SecretList", []):
+        resources.append(
+            ResourceConfig(
+                resource_type="aws_secretsmanager_secret",
+                name=secret["Name"],
+                config={
+                    "rotation_enabled": secret.get("RotationEnabled", False),
+                    "kms_key_id": secret.get("KmsKeyId"),
+                },
+                source="live_api",
+            )
+        )
+    return resources
+
+
+def _pull_dynamodb_tables(session: boto3.Session) -> list[ResourceConfig]:
+    ddb = session.client("dynamodb")
+    resources = []
+    for table_name in ddb.list_tables().get("TableNames", []):
+        table = ddb.describe_table(TableName=table_name)["Table"]
+
+        try:
+            backups = ddb.describe_continuous_backups(TableName=table_name)
+            pitr_status = backups["ContinuousBackupsDescription"]["PointInTimeRecoveryDescription"][
+                "PointInTimeRecoveryStatus"
+            ]
+        except ClientError:
+            pitr_status = None
+
+        resources.append(
+            ResourceConfig(
+                resource_type="aws_dynamodb_table",
+                name=table_name,
+                config={
+                    "sse_status": table.get("SSEDescription", {}).get("Status"),
+                    "point_in_time_recovery_status": pitr_status,
+                },
+                source="live_api",
+            )
+        )
+    return resources
+
+
+def _pull_cloudwatch_monitoring(session: boto3.Session) -> list[ResourceConfig]:
+    """Account-level summary for CIS-4.x (log metric filter + alarm
+    checks): rather than one pull per specific alarm type, surfaces every
+    configured alarm and log metric filter pattern as one resource and
+    lets the reasoning agent judge whether each required alarm type
+    (root usage, unauthorized API calls, etc.) is covered -- structurally
+    the same "insufficient info if absent" pattern as the other
+    account-level checks, just evaluated once instead of per-control."""
+    cw = session.client("cloudwatch")
+    logs = session.client("logs")
+
+    alarms = [
+        {"name": a["AlarmName"], "metric_name": a.get("MetricName"), "namespace": a.get("Namespace")}
+        for a in cw.describe_alarms().get("MetricAlarms", [])
+    ]
+
+    metric_filters = []
+    for log_group in logs.describe_log_groups().get("logGroups", []):
+        try:
+            filters = logs.describe_metric_filters(logGroupName=log_group["logGroupName"]).get(
+                "metricFilters", []
+            )
+        except ClientError:
+            continue
+        metric_filters.extend(
+            {"log_group": log_group["logGroupName"], "filter_pattern": f.get("filterPattern")}
+            for f in filters
+        )
+
+    return [
+        ResourceConfig(
+            resource_type="aws_cloudwatch_metric_alarm",
+            name="account-alarms-and-metric-filters",
+            config={"alarms": alarms, "metric_filters": metric_filters},
+            source="live_api",
+        )
+    ]
+
+
 def pull_all() -> list[ResourceConfig]:
     """Deterministic, fixed enumeration -- every listed pull runs every
     time, guaranteeing coverage rather than leaving discovery up to model
@@ -417,6 +525,10 @@ def pull_all() -> list[ResourceConfig]:
         + _pull_cloudtrail_trails(session)
         + _pull_config_recorder(session)
         + _pull_kms_keys(session)
+        + _pull_ec2_instances(session)
+        + _pull_secrets_manager_secrets(session)
+        + _pull_dynamodb_tables(session)
+        + _pull_cloudwatch_monitoring(session)
     )
 
 

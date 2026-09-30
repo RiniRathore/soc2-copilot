@@ -22,6 +22,7 @@ RELEVANT_RESOURCE_TYPES = {
     "aws_s3_bucket_logging",
     "aws_ebs_volume",
     "aws_db_instance",  # RDS
+    "aws_dynamodb_table",
     # Networking
     "aws_security_group",
     "aws_network_acl",
@@ -37,8 +38,14 @@ RELEVANT_RESOURCE_TYPES = {
     "aws_cloudtrail",
     "aws_config_configuration_recorder",
     "aws_cloudwatch_metric_alarm",
+    "aws_cloudwatch_log_metric_filter",
     # Encryption
     "aws_kms_key",
+    # Compute
+    "aws_instance",  # EC2
+    # Secrets
+    "aws_secretsmanager_secret",
+    "aws_secretsmanager_secret_rotation",
 }
 
 

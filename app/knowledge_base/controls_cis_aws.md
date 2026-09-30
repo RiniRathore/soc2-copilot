@@ -110,6 +110,15 @@ Ensure RDS database instances have encryption at rest enabled. An RDS
 instance created without storage encryption enabled is a violation of
 this control.
 
+## CIS-2.4.1
+Ensure DynamoDB tables have encryption at rest enabled. A table created
+without server-side encryption enabled is a violation of this control.
+
+## CIS-2.4.2
+Ensure DynamoDB tables have point-in-time recovery (PITR) enabled. A
+table with continuous backups / point-in-time recovery not enabled is a
+violation of this control.
+
 ## CIS-3.1
 Ensure CloudTrail is enabled in all regions, with a multi-region trail
 covering management events. An account with no multi-region CloudTrail
@@ -234,3 +243,22 @@ purpose-built security groups instead of the default one.
 Ensure no security group allows unrestricted ingress access on port 3389
 (RDP). Security group rules with a source CIDR of 0.0.0.0/0 on port 3389
 significantly increase the risk of unauthorized access to Windows hosts.
+
+## CIS-6.1
+Ensure EC2 instances require IMDSv2 (token-based instance metadata
+requests) rather than allowing IMDSv1. An instance with
+"HttpTokens"/"metadata_options" set to "optional" instead of "required"
+is a violation of this control -- IMDSv1 is a well-documented SSRF
+vector for exfiltrating an instance's IAM credentials.
+
+## CIS-6.2
+Ensure EC2 instances are not launched with a public IP address unless
+the workload genuinely requires direct internet exposure. An instance
+with a public IP/DNS assigned and no documented business justification
+is a violation of this control.
+
+## CIS-7.1
+Ensure Secrets Manager secrets have automatic rotation enabled. A secret
+(especially database credentials or API keys) with rotation not
+configured is a violation of this control.
+
